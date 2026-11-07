@@ -409,6 +409,9 @@ body::after {width:260px;height:260px;background:rgba(0,87,168,0.08);bottom:70px
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.ok{background:var(--ok)}
 .toast.err{background:#C0392B}
+.ok-promo{margin:0 0 22px;padding:12px 14px;border-radius:var(--rsm);font-size:13px;line-height:1.5;text-align:left}
+.ok-promo.ok{background:var(--ok-bg);border:1px solid rgba(14,124,74,.25);color:var(--ok)}
+.ok-promo.warn{background:rgba(217,45,32,.08);border:1px solid rgba(217,45,32,.28);color:#b42318}
 </style>
 </head>
 <body>
@@ -733,7 +736,8 @@ body::after {width:260px;height:260px;background:rgba(0,87,168,0.08);bottom:70px
       </div>
       <h2 style="font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:var(--txt-dark);margin-bottom:8px;">¡Producto registrado!</h2>
       <p style="font-size:13px;color:var(--txt-soft);line-height:1.6;margin-bottom:6px;" id="ok-desc">—</p>
-      <p style="font-size:12px;color:var(--txt-soft);margin-bottom:28px;" id="ok-pdv">—</p>
+      <p style="font-size:12px;color:var(--txt-soft);margin-bottom:14px;" id="ok-pdv">—</p>
+      <div class="ok-promo" id="ok-promo"></div>
 
       <button class="btn-primary" onclick="backToNew()" style="margin-bottom:12px;">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -966,6 +970,46 @@ function enviarASheets(registro) {
   }).catch(err => console.warn('Error enviando a Sheets:', err));
 }
 
+// REGLA DE DESCUENTO: registro martes-lunes; descuento sábado-lunes siguientes al cierre
+const DIAS_MIN_VENC = 2; // debe coincidir con Parametros!B28 del Sheet (días mínimos entre el lunes de cierre y el vencimiento)
+const MESES_L = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function hoyCO(){
+  const p = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Bogota',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).split('-').map(Number);
+  return new Date(p[0],p[1]-1,p[2]);
+}
+function addDias(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function cicloActual(){
+  const hoy=hoyCO();
+  let dow=hoy.getDay(); if(dow===0)dow=7;      // lunes=1 ... domingo=7
+  const cierre=addDias(hoy,(8-dow)%7);          // lunes de cierre (hoy si es lunes)
+  return {cierre, sab:addDias(cierre,5), lun:addDias(cierre,7)};
+}
+function rangoDescuento(c){
+  const a=c.sab,b=c.lun,mismo=a.getMonth()===b.getMonth();
+  return `del sábado ${a.getDate()}${mismo?'':' de '+MESES_L[a.getMonth()]} al lunes ${b.getDate()} de ${MESES_L[b.getMonth()]}`;
+}
+function fechaPasada(){
+  const d=+document.getElementById('sel-dia').value, m=+document.getElementById('sel-mes').value, y=+document.getElementById('sel-anio').value;
+  if(!d||!m||!y) return false;
+  return new Date(y,m-1,d) < hoyCO();
+}
+function mostrarDescuento(y,m,d){
+  const c=cicloActual(), box=document.getElementById('ok-promo');
+  const ok=Math.round((new Date(y,m-1,d)-c.cierre)/86400000)>=DIAS_MIN_VENC;
+  box.className='ok-promo '+(ok?'ok':'warn');
+  box.innerHTML = ok
+    ? `<b>Este producto tendrá descuento el próximo fin de semana</b>, que va ${rangoDescuento(c)}.`
+    : `<b>Ojo: este producto vence antes del descuento</b> (${rangoDescuento(c)}) y no entrará en este ciclo.`;
+}
+window.addEventListener('DOMContentLoaded',()=>{
+  const ids=['sel-dia','sel-mes','sel-anio'];
+  ids.forEach(id=>document.getElementById(id).addEventListener('change',()=>{
+    const pasada=fechaPasada();
+    ids.forEach(i=>document.getElementById(i).style.borderColor=pasada?'#d92d20':'');
+    if(pasada)toast('Esa fecha ya pasó. Revisa día, mes y año','err');
+  }));
+});
+
 // SAVE
 function save(){
   const dia=document.getElementById('sel-dia').value;
@@ -973,6 +1017,7 @@ function save(){
   const anio=document.getElementById('sel-anio').value;
   if(!mes){toast('Selecciona el mes','err');return;}
   if(!dia){toast('Selecciona el día','err');return;}
+  if(fechaPasada()){toast('La fecha de vencimiento ya pasó. Corrígela para registrar','err');return;}
   const qty=parseInt(document.getElementById('qty').value)||0;
   if(!qty){toast('Selecciona la cantidad de unidades','err');return;}
   const dp=String(dia).padStart(2,'0'),mp=String(mes).padStart(2,'0');
@@ -1002,6 +1047,7 @@ function save(){
   // Mostrar pantalla de confirmación
   document.getElementById('ok-desc').textContent = desc;
   document.getElementById('ok-pdv').textContent = `${pdv.nombre} · ${tc(pdv.ciudad)} · ${qty} uds · Vence: ${dp} ${MESES[parseInt(mes)]} ${anio}`;
+  mostrarDescuento(parseInt(anio),parseInt(mes),parseInt(dia));
   show('screen-ok');
   document.getElementById('bnav').style.display = 'none';
   document.getElementById('steps-bar').style.display = 'none';
