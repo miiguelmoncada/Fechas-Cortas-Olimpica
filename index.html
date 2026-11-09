@@ -409,7 +409,8 @@ body::after {width:260px;height:260px;background:rgba(0,87,168,0.08);bottom:70px
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.ok{background:var(--ok)}
 .toast.err{background:#C0392B}
-.ok-promo{margin:0 0 22px;padding:12px 14px;border-radius:var(--rsm);font-size:13px;line-height:1.5;text-align:left}
+.ok-promo{margin:0 0 22px;padding:16px 18px;border-radius:var(--rsm);font-size:17px;line-height:1.45;text-align:left}
+.ok-promo .ok-fechas{display:block;font-size:22px;font-weight:800;line-height:1.25;margin:6px 0}
 .ok-promo.ok{background:var(--ok-bg);border:1px solid rgba(14,124,74,.25);color:var(--ok)}
 .ok-promo.warn{background:rgba(217,45,32,.08);border:1px solid rgba(217,45,32,.28);color:#b42318}
 </style>
@@ -998,8 +999,8 @@ function mostrarDescuento(y,m,d){
   const ok=Math.round((new Date(y,m-1,d)-c.cierre)/86400000)>=DIAS_MIN_VENC;
   box.className='ok-promo '+(ok?'ok':'warn');
   box.innerHTML = ok
-    ? `<b>Este producto tendrá descuento el próximo fin de semana</b>, que va ${rangoDescuento(c)}.`
-    : `<b>Ojo: este producto vence antes del descuento</b> (${rangoDescuento(c)}) y no entrará en este ciclo.`;
+    ? `<b>Este producto tendrá descuento el próximo fin de semana:</b><span class="ok-fechas">${rangoDescuento(c)}</span>`
+    : `<b>Ojo: este producto vence antes del descuento</b><span class="ok-fechas">${rangoDescuento(c)}</span>y no entrará en este ciclo.`;
 }
 window.addEventListener('DOMContentLoaded',()=>{
   const ids=['sel-dia','sel-mes','sel-anio'];
